@@ -71,7 +71,7 @@
     .hospital-summary {
       text-align: center; font-size: 1.1em; margin-bottom: 16px;
     }
-    
+
     .provider-card {
         position: relative;
         background: white;
@@ -85,6 +85,74 @@
         transition: transform 0.2s;
         cursor: pointer;
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    /* body { font-family: sans-serif; margin: 40px; background: #f8f9fa; color: #333; } */
+    h1 { text-align: center; }
+
+    .summary-box {
+      max-width: 700px; margin: auto; background: white;
+      padding: 24px; border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .summary-row {
+      display: flex; justify-content: space-between;
+      margin: 8px 0;
+    }
+
+    .summary-row strong { font-weight: 600; }
+
+    .divider {
+      height: 1px; background: #ddd; margin: 16px 0;
+    }
+
+    table {
+      width: 100%; border-collapse: collapse; margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid #e0e0e0;
+      padding: 8px 12px; text-align: left;
+    }
+
+    th { background: #f0f0f0; }
+
+    .withdraw-btn, .express-btn {
+      margin-top: 16px;
+      padding: 10px 20px; border: none;
+      border-radius: 8px; cursor: pointer;
+      font-size: 1em;
+      margin-right: 10px;
+    }
+
+    .withdraw-btn {
+      background: #28a745; color: white;
+    }
+
+    .express-btn {
+      background: #ffc107; color: black;
+    }
+
+    .tier-box {
+      background: #f0f8ff;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
   </style>
 </head>
 <body>
@@ -96,6 +164,8 @@
 <div class="tabs">
   <button class="tab-btn active" onclick="switchTab('searchTab')">ค้นหา</button>
   <button class="tab-btn" onclick="switchTab('hospitalTab')">แผนที่โรงพยาบาล</button>
+  <button class="tab-btn" onclick="switchTab('earningsTab')">รายได้ของฉัน</button>
+
 </div>
 
 <!-- Tab 1: Search -->
@@ -122,6 +192,86 @@
   </div>
   <div id="map"></div>
 </div>
+
+<div class="tab-content" id="earningsTab">
+  <div style="max-width: 700px; margin: auto; background: white; padding: 24px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    
+
+
+<h1>📊 รายได้ประจำสัปดาห์</h1>
+
+<div class="summary-box">
+  <div class="tier-box">
+    🧬 <strong>ระดับของคุณ:</strong> มืออาชีพ ⭐⭐⭐  
+    <br>🏆 <strong>คะแนนสะสม:</strong> <span id="points">440</span> แต้ม
+  </div>
+
+  <div class="summary-row">
+    <span>💼 งานที่ทำทั้งหมด</span><strong id="total-jobs">4 งาน</strong>
+  </div>
+  <div class="summary-row">
+    <span>💰 รายได้รวม</span><strong>฿3,600</strong>
+  </div>
+  <div class="summary-row">
+    <span>🔻 ค่าธรรมเนียมแพลตฟอร์ม (10%)</span><strong>-฿360</strong>
+  </div>
+  <div class="divider"></div>
+  <div class="summary-row" style="font-size: 1.2em;">
+    <span>💸 รับจริง (สุทธิ)</span><strong id="net-income" style="color: green;">฿3,240</strong>
+  </div>
+
+  <div class="summary-row">
+    <span>⚡ เบิกด่วน (หักเพิ่ม 3%)</span>
+    <strong id="express-amount">฿3,142.80</strong>
+  </div>
+  <div class="summary-row" style="margin-top: 24px; font-weight: bold; font-size: 1.1em;">
+  รายได้สะสมของคุณ
+</div>
+<div class="summary-row">
+  <span>📅 เดือนนี้</span><strong id="monthly-income">฿12,150</strong>
+</div>
+<div class="summary-row">
+  <span>📆 ปีนี้</span><strong id="yearly-income">฿128,700</strong>
+</div>
+<div class="summary-row">
+  <span>🌟 รวมทั้งหมด</span><strong id="total-income">฿145,200</strong>
+</div>
+<div class="divider"></div>
+
+
+  <button class="withdraw-btn" onclick="alert('ระบบจะโอนเงินให้คุณภายในวันอังคาร')">📥 รอเงินเข้า</button>
+  <button class="express-btn" onclick="alert('ระบบจะโอนเงินให้คุณทันที (หักค่าธรรมเนียมเพิ่มเติม 3%)')">⚡ เบิกด่วน</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>วันที่</th>
+        <th>ชื่อลูกค้า</th>
+        <th>บริการ</th>
+        <th>ค่าบริการ</th>
+        <th>คะแนน</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>2025-05-27</td><td>คุณพงศ์</td><td>ดูแลช่วงเช้า</td><td>฿900</td><td>110</td></tr>
+      <tr><td>2025-05-28</td><td>คุณศิริ</td><td>ดูแลช่วงบ่าย</td><td>฿900</td><td>110</td></tr>
+      <tr><td>2025-05-29</td><td>คุณศักดิ์</td><td>ดูแลผู้ป่วยติดเตียง</td><td>฿900</td><td>110</td></tr>
+      <tr><td>2025-05-30</td><td>คุณณัฐ</td><td>ดูแลกลางคืน</td><td>฿900</td><td>110</td></tr>
+    </tbody>
+  </table>
+
+
+
+
+
+
+
+
+
+
+  </div>
+</div>
+
 
 <!-- Popup -->
 <div class="popup" id="popup">
@@ -425,6 +575,10 @@
     if (tabId === "hospitalTab") {
       setTimeout(initMap, 100);
     }
+    if (tabId === "earningsTab") {
+        renderEarnings();
+    }
+
   }
 
   function showPopup(provider) {
@@ -437,6 +591,30 @@
   function closePopup() {
     document.getElementById('popup').style.display = 'none';
   }
+  function renderEarnings() {
+  
+  // รายได้สัปดาห์นี้ (จากรอบนี้)
+  const baseIncome = 3600;
+  const platformFee = baseIncome * 0.10;
+  const netIncome = baseIncome - platformFee;
+  const expressAmount = netIncome * 0.97;
+
+  document.getElementById("net-income").innerText = `฿${netIncome.toLocaleString()}`;
+  document.getElementById("express-amount").innerText = `฿${expressAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
+  const totalPoints = 110 * 4;
+  document.getElementById("points").innerText = totalPoints;
+
+  // รายได้สะสม (สมมุติข้อมูล)
+  const monthlyIncome = 12150;
+  const yearlyIncome = 128700;
+  const allTimeIncome = 145200;
+
+  document.getElementById("monthly-income").innerText = `฿${monthlyIncome.toLocaleString()}`;
+  document.getElementById("yearly-income").innerText = `฿${yearlyIncome.toLocaleString()}`;
+  document.getElementById("total-income").innerText = `฿${allTimeIncome.toLocaleString()}`;
+}
+
 
   let mainMap;
   function initMap() {
