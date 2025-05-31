@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>บริการดูแลผู้ป่วย</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f8f9fa; }
+    .header { background: #2c3e50; color: white; padding: 20px; text-align: center; }
+    .tabs { display: flex; justify-content: center; background: #ecf0f1; }
+    .tab-btn {
+      padding: 12px 24px; cursor: pointer; background: none;
+      font-size: 1em; border: none;
+    }
+    .tab-btn.active { border-bottom: 3px solid #2c3e50; font-weight: bold; }
+    .tab-content { display: none; padding: 20px; }
+    .tab-content.active { display: block; }
+
+    .search-bar { text-align: center; margin-bottom: 20px; }
+    .search-bar input {
+      width: 50%; padding: 10px;
+      border-radius: 8px; border: 1px solid #ccc;
+    }
+
+    .card-container {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px; padding: 20px;
+    }
+
+    .provider-card {
+      background: white; border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 16px; display: flex; gap: 16px;
+      align-items: center; transition: transform 0.2s; cursor: pointer;
+    }
+
+    .provider-card:hover { transform: translateY(-4px); }
+
+    .provider-card img {
+      width: 64px; height: 64px; border-radius: 50%; object-fit: cover;
+      border: 2px solid #ddd;
+    }
+
+    .provider-info h3 { margin: 0; color: #2c3e50; }
+    .provider-info p { margin: 4px 0 0; font-size: 0.9em; color: #555; }
+
+    .popup {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.6); display: none;
+      justify-content: center; align-items: center; z-index: 9999;
+    }
+
+    .popup-content {
+      background: white; padding: 24px; border-radius: 12px;
+      width: 90%; max-width: 600px; position: relative;
+    }
+
+    .close-btn {
+      position: absolute; top: 12px; right: 16px;
+      font-size: 1.5em; cursor: pointer;
+    }
+
+    .popup-map, #map {
+      width: 100%; height: 300px; margin-top: 16px; border-radius: 8px;
+    }
+
+    .hospital-summary {
+      text-align: center; font-size: 1.1em; margin-bottom: 16px;
+    }
+    
+    .provider-card {
+        position: relative;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        padding: 16px;
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        flex-direction: row;
+        transition: transform 0.2s;
+        cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>บริการดูแลผู้ป่วย / พยาบาล / ผู้ช่วยพยาบาล</h1>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('searchTab')">ค้นหา</button>
+  <button class="tab-btn" onclick="switchTab('hospitalTab')">แผนที่โรงพยาบาล</button>
+</div>
+
+<!-- Tab 1: Search -->
+<div class="tab-content active" id="searchTab">
+  <div class="search-bar">
+    <input type="text" id="searchInput" placeholder="ค้นหาชื่อ / ความสามารถ" oninput="filterCards()" />
+  </div>
+  <div class="card-container" id="cardContainer">
+    <!-- Cards will be inserted by JS -->
+  </div>
+  
+  <div id="pagination" style="text-align:center; margin-top: 20px;">
+    <button onclick="changePage(-1)">ย้อนกลับ</button>
+    <span id="pageInfo" style="margin: 0 10px;"></span>
+    <button onclick="changePage(1)">ถัดไป</button>
+  </div>
+
+</div>
+
+<!-- Tab 2: Hospital -->
+<div class="tab-content" id="hospitalTab">
+  <div class="hospital-summary">
+    ผู้ให้บริการพร้อมใช้งาน: <strong id="providerCount">0</strong> ราย
+  </div>
+  <div id="map"></div>
+</div>
+
+<!-- Popup -->
+<div class="popup" id="popup">
+  <div class="popup-content">
+    <span class="close-btn" onclick="closePopup()">×</span>
+    <h2 id="popupName">ชื่อ</h2>
+    <p id="popupDetail">รายละเอียด</p>
+    <div id="popupMap" class="popup-map"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        crossorigin=""></script>
+<script>
+  const providers = [
+  {
+    name: 'สมใจ พยาบาลวิชาชีพ',
+    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+    desc: 'เชี่ยวชาญด้านดูแลผู้สูงอายุและทำแผล',
+    rate: 350,
+    time: '08:00 - 18:00',
+    hospital: 'รพ.พระราม 9',
+    area: 'ห้วยขวาง',
+    rating: 4.5,
+    popular: true,
+    latlng: [13.7563, 100.5018]
+  },
+  {
+    name: 'อารีย์ ผู้ช่วยพยาบาล',
+    avatar: 'https://randomuser.me/api/portraits/women/65.jpg',
+    desc: 'มีประสบการณ์ดูแลผู้ป่วยติดเตียงเวรกลางคืน',
+    rate: 300,
+    time: '20:00 - 06:00',
+    hospital: 'รพ.จุฬา',
+    area: 'บางรัก',
+    rating: 4.0,
+    popular: false,
+    latlng: [13.7456, 100.5341]
+  },
+  {
+    name: 'สมใจ พยาบาลวิชาชีพ',
+    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+    desc: 'เชี่ยวชาญด้านดูแลผู้สูงอายุและทำแผล',
+    rate: 350,
+    time: '08:00 - 18:00',
+    hospital: 'รพ.พระราม 9',
+    area: 'ห้วยขวาง',
+    rating: 4.5,
+    popular: true,
+    latlng: [13.7563, 100.5018]
+  },
+  {
+    name: 'อารีย์ ผู้ช่วยพยาบาล',
+    avatar: 'https://randomuser.me/api/portraits/women/65.jpg',
+    desc: 'มีประสบการณ์ดูแลผู้ป่วยติดเตียงเวรกลางคืน',
+    rate: 300,
+    time: '20:00 - 06:00',
+    hospital: 'รพ.จุฬา',
+    area: 'บางรัก',
+    rating: 4.0,
+    popular: false,
+    latlng: [13.7456, 100.5341]
+  },
+  {
+    name: 'สมใจ พยาบาลวิชาชีพ',
+    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+    desc: 'เชี่ยวชาญด้านดูแลผู้สูงอายุและทำแผล',
+    rate: 350,
+    time: '08:00 - 18:00',
+    hospital: 'รพ.พระราม 9',
+    area: 'ห้วยขวาง',
+    rating: 4.5,
+    popular: true,
+    latlng: [13.7563, 100.5018]
+  },
+  {
+    name: 'อารีย์ ผู้ช่วยพยาบาล',
+    avatar: 'https://randomuser.me/api/portraits/women/65.jpg',
+    desc: 'มีประสบการณ์ดูแลผู้ป่วยติดเตียงเวรกลางคืน',
+    rate: 300,
+    time: '20:00 - 06:00',
+    hospital: 'รพ.จุฬา',
+    area: 'บางรัก',
+    rating: 4.0,
+    popular: false,
+    latlng: [13.7456, 100.5341]
+  },
+  {
+    name: 'สมใจ พยาบาลวิชาชีพ',
+    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+    desc: 'เชี่ยวชาญด้านดูแลผู้สูงอายุและทำแผล',
+    rate: 350,
+    time: '08:00 - 18:00',
+    hospital: 'รพ.พระราม 9',
+    area: 'ห้วยขวาง',
+    rating: 4.5,
+    popular: true,
+    latlng: [13.7563, 100.5018]
+  },
+  {
+    name: 'อารีย์ ผู้ช่วยพยาบาล',
+    avatar: 'https://randomuser.me/api/portraits/women/65.jpg',
+    desc: 'มีประสบการณ์ดูแลผู้ป่วยติดเตียงเวรกลางคืน',
+    rate: 300,
+    time: '20:00 - 06:00',
+    hospital: 'รพ.จุฬา',
+    area: 'บางรัก',
+    rating: 4.0,
+    popular: false,
+    latlng: [13.7456, 100.5341]
+  },
+  {
+    name: 'สมใจ พยาบาลวิชาชีพ',
+    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+    desc: 'เชี่ยวชาญด้านดูแลผู้สูงอายุและทำแผล',
+    rate: 350,
+    time: '08:00 - 18:00',
+    hospital: 'รพ.พระราม 9',
+    area: 'ห้วยขวาง',
+    rating: 4.5,
+    popular: true,
+    latlng: [13.7563, 100.5018]
+  },
+  {
+    name: 'อารีย์ ผู้ช่วยพยาบาล',
+    avatar: 'https://randomuser.me/api/portraits/women/65.jpg',
+    desc: 'มีประสบการณ์ดูแลผู้ป่วยติดเตียงเวรกลางคืน',
+    rate: 300,
+    time: '20:00 - 06:00',
+    hospital: 'รพ.จุฬา',
+    area: 'บางรัก',
+    rating: 4.0,
+    popular: false,
+    latlng: [13.7456, 100.5341]
+  },
+  {
+    name: 'สมใจ พยาบาลวิชาชีพ',
+    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+    desc: 'เชี่ยวชาญด้านดูแลผู้สูงอายุและทำแผล',
+    rate: 350,
+    time: '08:00 - 18:00',
+    hospital: 'รพ.พระราม 9',
+    area: 'ห้วยขวาง',
+    rating: 4.5,
+    popular: true,
+    latlng: [13.7563, 100.5018]
+  },
+  {
+    name: 'อารีย์ ผู้ช่วยพยาบาล',
+    avatar: 'https://randomuser.me/api/portraits/women/65.jpg',
+    desc: 'มีประสบการณ์ดูแลผู้ป่วยติดเตียงเวรกลางคืน',
+    rate: 300,
+    time: '20:00 - 06:00',
+    hospital: 'รพ.จุฬา',
+    area: 'บางรัก',
+    rating: 4.0,
+    popular: false,
+    latlng: [13.7456, 100.5341]
+  },
+  {
+    name: 'สมใจ พยาบาลวิชาชีพ',
+    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+    desc: 'เชี่ยวชาญด้านดูแลผู้สูงอายุและทำแผล',
+    rate: 350,
+    time: '08:00 - 18:00',
+    hospital: 'รพ.พระราม 9',
+    area: 'ห้วยขวาง',
+    rating: 4.5,
+    popular: true,
+    latlng: [13.7563, 100.5018]
+  },
+  {
+    name: 'อารีย์ ผู้ช่วยพยาบาล',
+    avatar: 'https://randomuser.me/api/portraits/women/65.jpg',
+    desc: 'มีประสบการณ์ดูแลผู้ป่วยติดเตียงเวรกลางคืน',
+    rate: 300,
+    time: '20:00 - 06:00',
+    hospital: 'รพ.จุฬา',
+    area: 'บางรัก',
+    rating: 4.0,
+    popular: false,
+    latlng: [13.7456, 100.5341]
+  },
+  {
+    name: 'สมใจ พยาบาลวิชาชีพ',
+    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+    desc: 'เชี่ยวชาญด้านดูแลผู้สูงอายุและทำแผล',
+    rate: 350,
+    time: '08:00 - 18:00',
+    hospital: 'รพ.พระราม 9',
+    area: 'ห้วยขวาง',
+    rating: 4.5,
+    popular: true,
+    latlng: [13.7563, 100.5018]
+  },
+  {
+    name: 'อารีย์ ผู้ช่วยพยาบาล',
+    avatar: 'https://randomuser.me/api/portraits/women/65.jpg',
+    desc: 'มีประสบการณ์ดูแลผู้ป่วยติดเตียงเวรกลางคืน',
+    rate: 300,
+    time: '20:00 - 06:00',
+    hospital: 'รพ.จุฬา',
+    area: 'บางรัก',
+    rating: 4.0,
+    popular: false,
+    latlng: [13.7456, 100.5341]
+  },
+  {
+    name: 'สมใจ พยาบาลวิชาชีพ',
+    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+    desc: 'เชี่ยวชาญด้านดูแลผู้สูงอายุและทำแผล',
+    rate: 350,
+    time: '08:00 - 18:00',
+    hospital: 'รพ.พระราม 9',
+    area: 'ห้วยขวาง',
+    rating: 4.5,
+    popular: true,
+    latlng: [13.7563, 100.5018]
+  },
+  {
+    name: 'อารีย์ ผู้ช่วยพยาบาล',
+    avatar: 'https://randomuser.me/api/portraits/women/65.jpg',
+    desc: 'มีประสบการณ์ดูแลผู้ป่วยติดเตียงเวรกลางคืน',
+    rate: 300,
+    time: '20:00 - 06:00',
+    hospital: 'รพ.จุฬา',
+    area: 'บางรัก',
+    rating: 4.0,
+    popular: false,
+    latlng: [13.7456, 100.5341]
+  }
+  ];
+
+  const cardContainer = document.getElementById("cardContainer");
+  const providerCount = document.getElementById("providerCount");
+  const pageInfo = document.getElementById("pageInfo");
+
+  let currentPage = 1;
+  const pageSize = 8;
+
+  function renderCards() {
+    cardContainer.innerHTML = "";
+
+    const search = document.getElementById("searchInput").value.toLowerCase();
+    const filtered = providers.filter(p =>
+      p.name.toLowerCase().includes(search) ||
+      p.desc.toLowerCase().includes(search)
+    );
+
+    const start = (currentPage - 1) * pageSize;
+    const paged = filtered.slice(start, start + pageSize);
+
+    paged.forEach(p => {
+      const card = document.createElement("div");
+      card.className = "provider-card";
+      card.innerHTML = `
+        ${p.popular ? `<div style="position:absolute;top:-8px;right:-8px;background:#ff4757;color:#fff;padding:4px 8px;border-radius:8px;font-size:0.75em;">🔥 ยอดนิยม</div>` : ''}
+        <img src="${p.avatar}" alt="${p.name}">
+        <div class="provider-info">
+            <h3>${p.name}</h3>
+            <p>${p.desc}</p>
+            <p><strong>💸 ${p.rate} บาท/ชม</strong></p>
+            <p>🕒 ${p.time}</p>
+            <p>🏥 ${p.hospital}</p>
+            <p>📍 เขต ${p.area}</p>
+            <p>⭐ ${'★'.repeat(Math.floor(p.rating))}${p.rating % 1 >= 0.5 ? '½' : ''}</p>
+        </div>
+        `;
+      card.onclick = () => showPopup(p);
+      cardContainer.appendChild(card);
+    });
+
+    // Page Info
+    const totalPages = Math.ceil(filtered.length / pageSize);
+    pageInfo.textContent = `หน้า ${currentPage} จาก ${totalPages}`;
+
+    // Disable buttons if at ends
+    document.querySelector('#pagination button:first-child').disabled = currentPage === 1;
+    document.querySelector('#pagination button:last-child').disabled = currentPage === totalPages;
+  }
+
+  function filterCards() {
+    currentPage = 1;
+    renderCards();
+  }
+
+  function changePage(delta) {
+    currentPage += delta;
+    renderCards();
+  }
+
+  // Initial render
+  renderCards();
+  providerCount.textContent = providers.length;
+
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    document.querySelector(`[onclick="switchTab('${tabId}')"]`).classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+    if (tabId === "hospitalTab") {
+      setTimeout(initMap, 100);
+    }
+  }
+
+  function showPopup(provider) {
+    document.getElementById('popupName').textContent = provider.name;
+    document.getElementById('popupDetail').textContent = provider.desc;
+    document.getElementById('popup').style.display = 'flex';
+    setTimeout(() => initPopupMap(provider.latlng), 100);
+  }
+
+  function closePopup() {
+    document.getElementById('popup').style.display = 'none';
+  }
+
+  let mainMap;
+  function initMap() {
+    if (mainMap) return;
+    mainMap = L.map('map').setView([13.7563, 100.5018], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(mainMap);
+    providers.forEach(p => {
+      L.marker(p.latlng).addTo(mainMap).bindPopup(`<strong>${p.name}</strong><br>${p.desc}`);
+    });
+  }
+
+  function initPopupMap(latlng) {
+    const map = L.map('popupMap').setView(latlng, 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+    L.marker(latlng).addTo(map);
+  }
+</script>
+
+</body>
+</html>
